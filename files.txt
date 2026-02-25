@@ -1,0 +1,6 @@
+aaaaa
+files.txt
+Makefile
+src
+theshell
+woman
