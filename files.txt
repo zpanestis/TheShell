@@ -1,6 +1,4 @@
-aaaaa
+src 
 files.txt
+theshell 
 Makefile
-src
-theshell
-woman

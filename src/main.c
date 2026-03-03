@@ -73,39 +73,99 @@ char **parse_input(char str[]){
 
 void execute_command(char **args){
 
-    pid_t pid = fork();
-    if(pid == -1 ){
-        printf("Fork failed successfully...");
-        return;
+    int i=0;
+    char **left=NULL, **right= NULL;
+    while(args[i]!=NULL){
+        if (strcmp(args[i],"|")==0){
+            args[i]=NULL;
+            left=args;
+            right = &args[i+1];
+            break;
+        }
+        i++;
     }
-    
 
-    if(pid== 0){
-        int i=0;
-        while (args[i]!= NULL){
-            if (strcmp(args[i],">") == 0 ){
-                int fd =open(args[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0644);//0644 means that owner can write and everyone else reads
-                dup2(fd,STDOUT_FILENO);//file descriptor 1 point to the open file
-                close(fd);
-                args[i] = NULL;
-                break;
-            }
-            else if( strcmp(args[i],"<") == 0){
-                int fd = open(args[i+1], O_RDONLY);
-                dup2(fd,STDIN_FILENO);
-                close(fd);
-                args[i] = NULL;
-                break;
-            }
-            i++;
+    if(left!= NULL && right!= NULL){
+        int fd[2];
+        if(pipe(fd)== -1){
+            perror("pipe");
+            return ;
+        } 
+
+        pid_t pidL = fork();// making 2 processes 
+        if(pidL == -1){
+            perror("Fork failed...");
+            return;
+        }
+        if (pidL ==0){ // if its the child
+            dup2(fd[1],STDOUT_FILENO);
+            close(fd[0]);
+            close(fd[1]);
+            execvp(left[0],left);
+            printf("Could not execute \n");
+            _exit(1);
         }
 
-        execvp(args[0],args);
-        printf("Command: \"%s\" not found.\n",args[0]);
-        _exit(1);
+        pid_t pidR = fork();
+        if(pidR == -1){
+            perror("Fork failed..");
+            return;
+        }
+        if(pidR ==0){//if its child of father of father
+            dup2(fd[0],STDIN_FILENO);
+            close(fd[0]);
+            close(fd[1]);
+            execvp(right[0],right);
+            printf("Could not execute\n");
+            _exit(1);
+        }
+
+        close(fd[0]);
+        close(fd[1]);
+        waitpid(pidL,NULL,0);
+        waitpid(pidR,NULL,0);
+
+        
+        
+
     }else{
-        waitpid(pid,NULL,0);
+        pid_t pid = fork();
+        if(pid == -1 ){
+            printf("Fork failed successfully...");
+            return;
+        }
+        
+
+        if(pid== 0){
+            i=0;
+            while (args[i]!= NULL){
+                if (strcmp(args[i],">") == 0 ){
+                    int fd =open(args[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0644);//0644 means that owner can write and everyone else reads
+                    dup2(fd,STDOUT_FILENO);//file descriptor 1 point to the open file
+                    close(fd);
+                    args[i] = NULL;
+                    break;
+                }
+                else if( strcmp(args[i],"<") == 0){
+                    int fd = open(args[i+1], O_RDONLY);
+                    dup2(fd,STDIN_FILENO);
+                    close(fd);
+                    args[i] = NULL;
+                    break;
+                }
+                i++;
+            }
+
+            execvp(args[0],args);
+            printf("Command: \"%s\" not found.\n",args[0]);
+            _exit(1);
+        }else{
+            waitpid(pid,NULL,0);
+        }  
     }
+
+
+    
 }
 
 int handle_builtin(char **args){
