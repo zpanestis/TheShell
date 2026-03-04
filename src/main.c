@@ -15,14 +15,17 @@ void execute_command(char **args);
 int handle_builtin(char **args);
 void makeTree(char *path);
 
+
+struct sigaction sa;
+
+
 int main(void){
     
-    struct sigaction sa;
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags =0;
-
     sigaction(SIGINT,&sa,NULL);
+    
     char buffer[1024];
     while(1){
         printf(">");
@@ -101,6 +104,8 @@ void execute_command(char **args){
             dup2(fd[1],STDOUT_FILENO);
             close(fd[0]);
             close(fd[1]);
+            sa.sa_handler = SIG_DFL;
+            sigaction(SIGINT,&sa,NULL);
             execvp(left[0],left);
             printf("Could not execute \n");
             _exit(1);
@@ -115,6 +120,8 @@ void execute_command(char **args){
             dup2(fd[0],STDIN_FILENO);
             close(fd[0]);
             close(fd[1]);
+            sa.sa_handler = SIG_DFL;
+            sigaction(SIGINT,&sa,NULL);
             execvp(right[0],right);
             printf("Could not execute\n");
             _exit(1);
@@ -122,8 +129,12 @@ void execute_command(char **args){
 
         close(fd[0]);
         close(fd[1]);
-        waitpid(pidL,NULL,0);
-        waitpid(pidR,NULL,0);
+        int st1, st2;//child statuses
+        waitpid(pidL,&st1,0);
+        waitpid(pidR,&st2,0);
+        if(WIFSIGNALED(st1)||WIFSIGNALED(st2)){
+            printf("\n");
+        }
 
         
         
@@ -155,12 +166,17 @@ void execute_command(char **args){
                 }
                 i++;
             }
-
+            sa.sa_handler = SIG_DFL;
+            sigaction(SIGINT,&sa,NULL);
             execvp(args[0],args);
             printf("Command: \"%s\" not found.\n",args[0]);
             _exit(1);
         }else{
-            waitpid(pid,NULL,0);
+            int st;
+            waitpid(pid,&st,0);
+            if(WIFSIGNALED(st)){
+                printf("\n");
+            }
         }  
     }
 
